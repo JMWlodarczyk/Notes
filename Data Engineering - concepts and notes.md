@@ -18,13 +18,12 @@ A **Data Warehouse (DW)** is a centralized system designed to **store, integrate
 
 ### 🏗️ Architecture Overview
 
-1. **Data Sources** – ERP, CRM, APIs, logs, files  
+1. **Data Sources** – ERP, CRM, APIs, logs, files, SharePoint lol, 
 2. **ETL/ELT** – Extract, Transform, Load  
-3. **Warehouse Storage** – Snowflake, Redshift, BigQuery  
-4. **Data Marts** (optional) – Dept-specific subsets  
-5. **BI Tools** – Tableau, Power BI, Looker  
+3. **Warehouse Storage** – Snowflake, Redshift, BigQuery, database lol, 
+4. **Data Marts** (optional) – Dept-specific subsets - aggragates, views, persisted tables
+5. **BI Tools** – Tableau, Power BI, Looker - only PowerBi in use lol
 
-Notes: 
 ---
 
 ### 🗃️ Schema Types
