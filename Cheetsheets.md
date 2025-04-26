@@ -20,6 +20,7 @@ git checkout -b <branch>       # Create & switch
 git switch <branch>            # Switch branches
 git merge <branch>             # Merge branch into current
 git rebase <branch>            # Rebase current onto <branch>
+git push origin -u <branch>    #pgte branch to remote
 
 # Syncing
 git pull                       # Pull changes
@@ -86,6 +87,291 @@ HAVING COUNT(*) > 5;
 -- UNION is important
 -- Merge into super important
 -- Merge into vs overwrite
+
+Most Important Window Functions in SQL:
+
+Window functions perform calculations across a set of table rows related to the current row, without collapsing the results.
+
+Top window functions:
+
+ROW_NUMBER() - Assigns a unique number to rows within a partition (good for rankings).
+RANK() - Ranks rows with gaps in case of ties.
+DENSE_RANK() - Like RANK() but no gaps between rankings.
+NTILE(n) - Divides rows into n groups.
+LEAD() - Access the next row’s value.
+LAG() - Access the previous row’s value.
+SUM() OVER() - Running total without grouping.
+AVG() OVER() - Moving averages.
+FIRST_VALUE() - First value in a window.
+LAST_VALUE() - Last value in a window.
+
+Example:
+
+SELECT 
+    user_id,
+    order_date,
+    SUM(order_amount) OVER (PARTITION BY user_id ORDER BY order_date) AS running_total
+FROM orders;
+
+---
+
+What is a CTE (Common Table Expression)?
+
+CTEs are temporary result sets used inside a larger query, started with the WITH keyword.
+
+Example:
+
+WITH recent_orders AS (
+    SELECT user_id, order_date
+    FROM orders
+    WHERE order_date >= '2025-01-01'
+)
+SELECT user_id, COUNT(*)
+FROM recent_orders
+GROUP BY user_id;
+
+You can chain multiple CTEs.
+
+---
+
+What is COALESCE?
+
+COALESCE returns the first non-NULL value from a list.
+
+Example:
+
+SELECT COALESCE(phone_number, email, 'no_contact_info') AS contact
+FROM users;
+
+Meaning: Try phone_number first, if NULL then try email, else use 'no_contact_info'.
+
+---
+
+Advanced SQL Concepts and Real-World Examples:
+
+1. Recursive CTEs
+   - Solve hierarchy problems (e.g., org charts).
+   
+   Example:
+
+   WITH RECURSIVE org_chart AS (
+       SELECT employee_id, manager_id, 1 AS level
+       FROM employees
+       WHERE employee_id = 'John'
+
+       UNION ALL
+
+       SELECT e.employee_id, e.manager_id, level + 1
+       FROM employees e
+       INNER JOIN org_chart o ON e.employee_id = o.manager_id
+   )
+   SELECT * FROM org_chart;
+
+---
+
+2. Window Frame Clauses
+   - Control how much data a window function sees (e.g., moving averages).
+
+   Example:
+
+   SELECT 
+       date,
+       sales,
+       AVG(sales) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS moving_avg
+   FROM sales_data;
+
+---
+
+3. Partitioning and Indexing
+   - Divide big tables like logs into partitions (e.g., by date) for faster querying.
+
+---
+
+4. CTEs + Window Functions + Joins Together
+   - Combine techniques for complex logic.
+
+   Example:
+
+   WITH ranked_purchases AS (
+       SELECT 
+           customer_id,
+           purchase_date,
+           ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY purchase_date) AS rn
+       FROM purchases
+   )
+   SELECT customer_id, purchase_date
+   FROM ranked_purchases
+   WHERE rn IN (1, 2);
+
+---
+
+5. CASE Inside Aggregations
+   - Conditional sums or counts.
+
+   Example:
+
+   SELECT 
+       COUNT(CASE WHEN status = 'active' THEN 1 END) AS active_users,
+       COUNT(CASE WHEN status = 'inactive' THEN 1 END) AS inactive_users
+   FROM users;
+
+---
+
+6. Materialized Views
+   - Save a query result and refresh it periodically.
+
+   Example:
+
+   CREATE MATERIALIZED VIEW daily_active_users AS
+   SELECT date, COUNT(DISTINCT user_id)
+   FROM user_activity
+   GROUP BY date;
+
+---
+
+7. Pivot and Unpivot
+   - Transform rows into columns or vice versa.
+
+   Example (pivot orders into months):
+
+   SELECT 
+       customer_id,
+       SUM(CASE WHEN EXTRACT(MONTH FROM order_date) = 1 THEN 1 ELSE 0 END) AS jan_orders,
+       SUM(CASE WHEN EXTRACT(MONTH FROM order_date) = 2 THEN 1 ELSE 0 END) AS feb_orders
+   FROM orders
+   GROUP BY customer_id;
+
+---
+
+8. Anti-Joins and Semi-Joins
+   - Find missing or existing relationships efficiently.
+
+   Example (users who never purchased):
+
+   SELECT u.user_id
+   FROM users u
+   LEFT JOIN purchases p ON u.user_id = p.user_id
+   WHERE p.user_id IS NULL;
+
+---
+
+Real-World SQL Patterns:
+
+---
+
+1. Daily Data Pipeline with SQL
+
+Goal: Load only new data daily (incremental load).
+
+Example:
+
+INSERT INTO clean_orders (order_id, customer_id, amount, created_at)
+SELECT 
+    order_id,
+    customer_id,
+    amount,
+    created_at
+FROM raw_orders
+WHERE created_at >= CURRENT_DATE - INTERVAL '1 day'
+  AND created_at < CURRENT_DATE;
+
+---
+
+2. Retention Cohorts Analysis
+
+Goal: Track user retention over time.
+
+Example:
+
+WITH cohort AS (
+    SELECT user_id, MIN(signup_date) AS cohort_date
+    FROM users
+    GROUP BY user_id
+),
+activity AS (
+    SELECT l.user_id, l.login_date, c.cohort_date,
+           DATE_DIFF('day', c.cohort_date, l.login_date) AS days_since_signup
+    FROM logins l
+    JOIN cohort c ON l.user_id = c.user_id
+)
+SELECT 
+    cohort_date,
+    days_since_signup,
+    COUNT(DISTINCT user_id) AS active_users
+FROM activity
+GROUP BY cohort_date, days_since_signup
+ORDER BY cohort_date, days_since_signup;
+
+---
+
+3. Anomaly Detection in SQL
+
+Goal: Find sudden drops or spikes (e.g., sales drop by 50%).
+
+Example:
+
+WITH sales_by_day AS (
+    SELECT 
+        order_date,
+        SUM(order_amount) AS daily_sales
+    FROM orders
+    GROUP BY order_date
+),
+sales_with_lag AS (
+    SELECT 
+        order_date,
+        daily_sales,
+        LAG(daily_sales) OVER (ORDER BY order_date) AS previous_day_sales
+    FROM sales_by_day
+)
+SELECT 
+    order_date,
+    daily_sales,
+    previous_day_sales,
+    (daily_sales - previous_day_sales) / previous_day_sales AS percent_change
+FROM sales_with_lag
+WHERE ABS((daily_sales - previous_day_sales) / previous_day_sales) > 0.5;
+
+---
+
+4. Data Cleaning and Deduplication
+
+Goal: Remove duplicates, keeping the most recent record.
+
+Example:
+
+WITH ranked_users AS (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY email ORDER BY created_at DESC) AS rn
+    FROM users
+)
+DELETE FROM ranked_users
+WHERE rn > 1;
+
+---
+
+5. Slowly Changing Dimension (SCD) - Type 2
+
+Goal: Track history of changes without overwriting.
+
+Example structure:
+
+| user_id | address    | valid_from | valid_to    |
+|--------|-------------|------------|-------------|
+| 123    | old address | 2020-01-01 | 2022-01-01  |
+| 123    | new address | 2022-01-01 | NULL        |
+
+---
+
+Quick Summary:
+
+| Pattern                  | Real-world use case                      |
+|---------------------------|------------------------------------------|
+| Daily pipeline            | Regularly update tables without full reloads |
+| Retention cohorts         | Understand user stickiness              |
+| Anomaly detection         | Alert on sudden data changes            |
+| Deduplication             | Clean messy raw data                    |
+| SCD Type 2                | Track full historical changes           |
 
 
 ```
